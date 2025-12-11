@@ -126,7 +126,7 @@ function initFormHandling() {
                           `Контакт: ${encodeURIComponent(contact)}%0A` +
                           `Бизнес: ${encodeURIComponent(business || 'Не указано')}`;
             
-            const phone = "7079310602"; // Your WhatsApp number without +
+            const phone = "77027215915"; // Your WhatsApp number without +
             
             // Update button state
             const submitButton = this.querySelector('button[type="submit"]');
