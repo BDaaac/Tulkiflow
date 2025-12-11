@@ -104,10 +104,25 @@ function initFormHandling() {
         contactForm.addEventListener('submit', function(e) {
             e.preventDefault();
             
-            const formData = new FormData(this);
-            const name = formData.get('name').trim();
-            const contact = formData.get('contact').trim();
-            const business = formData.get('business').trim();
+            // Cross-browser form data extraction
+            var formData;
+            var name, contact, business;
+            
+            if (typeof FormData !== 'undefined') {
+                formData = new FormData(this);
+                name = formData.get('name') ? formData.get('name').trim() : '';
+                contact = formData.get('contact') ? formData.get('contact').trim() : '';
+                business = formData.get('business') ? formData.get('business').trim() : '';
+            } else {
+                // Fallback for older browsers
+                var nameInput = this.querySelector('input[name="name"]');
+                var contactInput = this.querySelector('input[name="contact"]');
+                var businessInput = this.querySelector('input[name="business"], textarea[name="business"]');
+                
+                name = nameInput ? nameInput.value.trim() : '';
+                contact = contactInput ? contactInput.value.trim() : '';
+                business = businessInput ? businessInput.value.trim() : '';
+            }
             
             // Basic validation
             if (!name || !contact) {
@@ -116,33 +131,56 @@ function initFormHandling() {
             }
             
             if (!validateContact(contact)) {
-                showNotification('Пожалуйста, введите корректный Telegram или номер телефона', 'error');
+                showNotification('Пожалуйста, введите корректный номер телефона', 'error');
                 return;
             }
             
-            // Prepare WhatsApp message
-            const message = `Заявка с лендинга Tulkiflow:%0A%0A` +
-                          `Имя: ${encodeURIComponent(name)}%0A` +
-                          `Контакт: ${encodeURIComponent(contact)}%0A` +
-                          `Бизнес: ${encodeURIComponent(business || 'Не указано')}`;
+            // Prepare WhatsApp message with better encoding
+            var messageParts = [
+                'Заявка с лендинга Tulkiflow:',
+                '',
+                'Имя: ' + name,
+                'Контакт: ' + contact,
+                'Бизнес: ' + (business || 'Не указано')
+            ];
             
-            const phone = "77027215915"; // Your WhatsApp number without +
+            var messageText = messageParts.join('\n');
+            var message = encodeURIComponent(messageText);
+            
+            var phone = "77027215915"; // Your WhatsApp number without +
             
             // Update button state
-            const submitButton = this.querySelector('button[type="submit"]');
-            const originalText = submitButton.textContent;
-            submitButton.textContent = 'Перенаправление в WhatsApp...';
-            submitButton.disabled = true;
+            var submitButton = contactForm.querySelector('button[type="submit"]');
+            var originalText = submitButton ? submitButton.textContent || submitButton.innerText : '';
+            
+            if (submitButton) {
+                submitButton.textContent = 'Перенаправление в WhatsApp...';
+                submitButton.disabled = true;
+            }
             
             // Show notification and redirect to WhatsApp
             showNotification('Перенаправляем вас в WhatsApp для отправки заявки...', 'success');
             
-            setTimeout(() => {
-                window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+            // Cross-browser compatible redirect
+            setTimeout(function() {
+                var whatsappUrl = 'https://wa.me/' + phone + '?text=' + message;
+                
+                // Try different methods for better compatibility
+                if (navigator.userAgent.match(/Mobile|iP(hone|od|ad)|Android|BlackBerry|IEMobile/)) {
+                    // Mobile device - try app first, then web
+                    window.location.href = whatsappUrl;
+                } else {
+                    // Desktop - open in new tab
+                    var newWindow = window.open(whatsappUrl, '_blank');
+                    if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+                        // Popup blocked, try direct navigation
+                        window.location.href = whatsappUrl;
+                    }
+                }
                 
                 // Reset form and button after redirect
-                setTimeout(() => {
-                    this.reset();
+                setTimeout(function() {
+                    contactForm.reset();
                     submitButton.textContent = originalText;
                     submitButton.disabled = false;
                     showNotification('Заявка подготовлена! Нажмите "Отправить" в WhatsApp для завершения.', 'success');
@@ -154,13 +192,10 @@ function initFormHandling() {
 
 // Contact validation
 function validateContact(contact) {
-    // Telegram username pattern (@username or username)
-    const telegramPattern = /^@?[A-Za-z0-9_]{5,32}$/;
-    
     // Phone pattern (basic international format)
     const phonePattern = /^[\+]?[1-9][\d]{7,15}$/;
     
-    return telegramPattern.test(contact) || phonePattern.test(contact.replace(/[\s\-\(\)]/g, ''));
+    return phonePattern.test(contact.replace(/[\s\-\(\)]/g, ''));
 }
 
 // Notification system
